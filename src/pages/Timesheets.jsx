@@ -198,6 +198,7 @@ const Timesheets = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Projet</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tâche</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Heures</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Taux</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Coût</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -222,6 +223,9 @@ const Timesheets = () => {
                         <Clock className="h-4 w-4 mr-1 text-gray-400 dark:text-gray-500" />
                         {parseFloat(timesheet.hours).toFixed(1)} hrs
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                      {(parseFloat(timesheet.hourly_rate)).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
                       {(parseFloat(timesheet.hours) * parseFloat(timesheet.hourly_rate || 0)).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
