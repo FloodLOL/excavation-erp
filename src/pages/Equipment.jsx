@@ -211,8 +211,18 @@ const Equipment = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-6 my-8">
+        <div
+          className="fixed inset-0 bg-opacity-15 dark:bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+          onClick={() => {
+            setShowModal(false)
+            setEditingEquipment(null)
+            resetForm()
+          }}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-6 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               {editingEquipment ? 'Modifier l\'équipement' : 'Ajouter un nouvel équipement'}
             </h2>

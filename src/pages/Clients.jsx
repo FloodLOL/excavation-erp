@@ -163,8 +163,18 @@ const Clients = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+        <div
+          className="fixed inset-0 bg-opacity-15 dark:bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => {
+            setShowModal(false)
+            setEditingClient(null)
+            setFormData({ name: '', email: '', phone: '', address: '' })
+          }}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               {editingClient ? 'Modifier le client' : 'Ajouter un nouveau client'}
             </h2>
