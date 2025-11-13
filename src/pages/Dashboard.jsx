@@ -211,6 +211,7 @@ const Dashboard = () => {
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px'
                 }}
+                formatter={(value) => [`${value.toLocaleString()} $`, 'Montant']}
               />
               <Bar dataKey="amount" fill="#3B82F6" radius={[8, 8, 0, 0]} />
             </BarChart>
