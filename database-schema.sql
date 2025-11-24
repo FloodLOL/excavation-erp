@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     date DATE NOT NULL,
     project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
     receipt_number TEXT,
+    receipt_image TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
@@ -228,7 +229,10 @@ CREATE INDEX idx_timesheets_date ON timesheets(date);
 CREATE OR REPLACE FUNCTION set_user_id()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.user_id = auth.uid();
+    -- Only set user_id if it's not already set
+    IF NEW.user_id IS NULL THEN
+        NEW.user_id = auth.uid();
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

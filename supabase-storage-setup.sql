@@ -1,0 +1,7 @@
+-- Supabase Storage Configuration for Expense Receipts
+--
+-- IMPORTANT: Ne pas exécuter ce fichier dans SQL Editor!
+-- Les buckets de stockage doivent être créés via l'interface Supabase.
+--
+-- Suivez les instructions dans SETUP-RECEIPT-PHOTOS.md pour configurer
+-- le stockage via l'interface graphique de Supabase.

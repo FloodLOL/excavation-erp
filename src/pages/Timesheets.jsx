@@ -188,9 +188,68 @@ const Timesheets = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          {/* Vue mobile: Cards */}
+          <div className="block lg:hidden space-y-4">
+            {filteredTimesheets.map((timesheet) => (
+              <div key={timesheet.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{timesheet.employee_name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(timesheet.date).toLocaleDateString('fr-CA')}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(timesheet)}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(timesheet.id)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {timesheet.projects?.name && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Projet: {timesheet.projects.name}
+                    </div>
+                  )}
+                  {timesheet.task_description && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {timesheet.task_description}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center text-gray-900 dark:text-white">
+                      <Clock className="h-4 w-4 mr-1 text-gray-400" />
+                      <span className="font-semibold">{parseFloat(timesheet.hours).toFixed(1)} hrs</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {(parseFloat(timesheet.hourly_rate)).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}/hr
+                      </div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">
+                        {(parseFloat(timesheet.hours) * parseFloat(timesheet.hourly_rate || 0)).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop: Tableau */}
+          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
@@ -252,6 +311,7 @@ const Timesheets = () => {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {showModal && (

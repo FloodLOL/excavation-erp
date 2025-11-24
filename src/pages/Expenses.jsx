@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Edit2, Trash2, Search, Calendar } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Calendar, Camera, Upload, X, Eye } from 'lucide-react'
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([])
@@ -9,6 +9,11 @@ const Expenses = () => {
   const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingExpense, setEditingExpense] = useState(null)
+  const [receiptImage, setReceiptImage] = useState(null)
+  const [receiptImagePreview, setReceiptImagePreview] = useState(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [viewingImage, setViewingImage] = useState(null)
+  const fileInputRef = useRef(null)
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -16,6 +21,7 @@ const Expenses = () => {
     date: new Date().toISOString().split('T')[0],
     project_id: '',
     receipt_number: '',
+    receipt_image: '',
   })
 
   useEffect(() => {
@@ -41,13 +47,87 @@ const Expenses = () => {
     }
   }
 
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image valide')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('L\'image ne doit pas dépasser 5 MB')
+      return
+    }
+
+    setReceiptImage(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setReceiptImagePreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const uploadReceiptImage = async (file) => {
+    try {
+      setUploadingImage(true)
+      const fileExt = file.name.split('.').pop()
+      // Use the user ID to ensure unique, grouped files
+      const { data: { user } } = await supabase.auth.getUser()
+      const fileName = `${user.id}/${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
+
+      // NOTE: Ensure 'expense-receipts' exactly matches your bucket name in Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('expense-receipts')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type, // Better mime type handling
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('expense-receipts')
+        .getPublicUrl(fileName) // Use the full path, which now includes the user ID
+
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      throw error
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Vous devez être connecté pour ajouter une dépense')
+        return
+      }
+
+      let imageUrl = formData.receipt_image
+
+      // Upload new image if one was selected
+      if (receiptImage) {
+        imageUrl = await uploadReceiptImage(receiptImage)
+      }
+
       const dataToSave = {
         ...formData,
         amount: parseFloat(formData.amount),
         project_id: formData.project_id || null,
+        receipt_image: imageUrl || null,
+        user_id: user.id,
       }
 
       if (editingExpense) {
@@ -79,7 +159,10 @@ const Expenses = () => {
       date: new Date().toISOString().split('T')[0],
       project_id: '',
       receipt_number: '',
+      receipt_image: '',
     })
+    setReceiptImage(null)
+    setReceiptImagePreview(null)
   }
 
   const handleEdit = (expense) => {
@@ -91,8 +174,17 @@ const Expenses = () => {
       date: expense.date,
       project_id: expense.project_id || '',
       receipt_number: expense.receipt_number || '',
+      receipt_image: expense.receipt_image || '',
     })
+    setReceiptImage(null)
+    setReceiptImagePreview(expense.receipt_image || null)
     setShowModal(true)
+  }
+
+  const removeReceiptImage = () => {
+    setReceiptImage(null)
+    setReceiptImagePreview(null)
+    setFormData({ ...formData, receipt_image: '' })
   }
 
   const handleDelete = async (id) => {
@@ -180,14 +272,75 @@ const Expenses = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          {/* Vue mobile: Cards */}
+          <div className="block lg:hidden space-y-4">
+            {filteredExpenses.map((expense) => (
+              <div key={expense.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {expense.receipt_image && (
+                      <button
+                        onClick={() => setViewingImage(expense.receipt_image)}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Voir la facture"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                    )}
+                    <div>
+                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {new Date(expense.date).toLocaleDateString()}
+                      </div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mt-1">{expense.description}</h3>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(expense)}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(expense.id)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
+                      {getCategoryLabel(expense.category)}
+                    </span>
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">
+                      ${parseFloat(expense.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {expense.projects?.name && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Projet: {expense.projects.name}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop: Tableau */}
+          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Facture</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Catégorie</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Projet</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Montant</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
@@ -202,18 +355,32 @@ const Expenses = () => {
                         {new Date(expense.date).toLocaleDateString()}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{expense.description}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {expense.receipt_image ? (
+                        <button
+                          onClick={() => setViewingImage(expense.receipt_image)}
+                          className="inline-flex items-center p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          title="Voir la facture"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-600">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
                         {getCategoryLabel(expense.category)}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{expense.description}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                       {expense.projects?.name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
                       ${parseFloat(expense.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <div className="flex justify-end gap-2">
                         <button
@@ -236,6 +403,7 @@ const Expenses = () => {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {showModal && (
@@ -331,6 +499,64 @@ const Expenses = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Photo de la facture (Optionnel)</label>
+                <div className="space-y-3">
+                  {receiptImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={receiptImagePreview}
+                        alt="Aperçu de la facture"
+                        className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeReceiptImage}
+                        className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        <Camera className="h-5 w-5 mr-2" />
+                        Prendre une photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current?.removeAttribute('capture')
+                          fileInputRef.current?.click()
+                        }}
+                        className="flex-1 flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        <Upload className="h-5 w-5 mr-2" />
+                        Choisir une image
+                      </button>
+                    </div>
+                  )}
+                  {uploadingImage && (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Téléchargement...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -351,6 +577,28 @@ const Expenses = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingImage && (
+        <div
+          className="fixed inset-0 bg-opacity-15 dark:bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setViewingImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setViewingImage(null)}
+              className="absolute -top-12 right-0 p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <img
+              src={viewingImage}
+              alt="Facture"
+              className="w-full h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
